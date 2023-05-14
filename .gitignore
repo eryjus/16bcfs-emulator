@@ -1,1 +1,3 @@
 .tup
+bin/emu*
+.vscode
