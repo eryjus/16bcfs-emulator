@@ -1,1 +1,1 @@
-: ../src/*.cc |> clang -I ../inc -l stdc++ -o %o %f |> emu
+: ../src/*.cc |> clang -I ../inc -o %o %f -lncurses -lstdc++ |> emu

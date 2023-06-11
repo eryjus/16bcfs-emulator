@@ -17,12 +17,6 @@
 
 
 //
-// -- This macro is to help readability in the source code
-//    ----------------------------------------------------
-#define CPU (CPU_t::Get())
-
-
-//
 // -- Print a value as a binary Number
 //    --------------------------------
 void CPU_t::PrintBinary(uint16_t v)
@@ -54,48 +48,57 @@ void CPU_t::PrintBinary(uint16_t v)
 bool CPU_t::Emulate(uint16_t cond, uint16_t opcode)
 {
     switch(opcode) {
-    case 0x000:
+    case 0x000:     /* NOP */
         // Do Nothing!
-        printf("NOP\n");
+
+        if (irSuppress) {
+            UI->AppendHistory("NOP (IR Suppress)\n");
+            irSuppress = false;
+        } else if (unlikely(firstInstr)) {
+            UI->AppendHistory("NOP (First Instruction)\n");
+            firstInstr = false;
+        } else {
+            UI->AppendHistory("NOP\n");
+        }
+
         break;
 
-    case 0x013:
+    case 0x013:     /* MOV R1,<imm16> */
+        UI->AppendHistory("MOV R1,%04.4X\n", CPU->fetch.Value());
+
         r1 = fetch;
         fetch = 0;
-
-        printf("MOV R1,<imm16>\n\tR1 = ");
-        PrintBinary(r1.Value());
+        irSuppress = true;
         break;
 
-    case 0x020:
+    case 0x020:     /* CLC */
+        UI->AppendHistory("CLC\n");
+
         c = false;
-
-        printf("CLC\n");
         break;
 
-    case 0x030:
+    case 0x030:     /* STC */
+        UI->AppendHistory("STC\n");
+
         c = true;
-
-        printf("STC\n");
         break;
 
-    case 0x040:
+    case 0x040:     /* MOV R1,PC */
+        UI->AppendHistory("MOV R1,PC\n");
+
         r1 = pc;
-
-        printf("MOV R1,PC\n\tR1 = ");
-        PrintBinary(r1.Value());
         break;
 
-    case 0xff3:
+    case 0xff3:     /* JMP <imm16> */
+        UI->AppendHistory("JMP %04.4X\n", CPU->fetch.Value());
+
         pc = fetch;
         fetch = 0;
-
-        printf("JMP <imm16>\tPC = \n");
-        PrintBinary(pc.Value());
+        irSuppress = true;
         return false;
 
     default:
-        fprintf(stderr, "Unimplemented OpCode: 0x%x%x\n", cond, opcode);
+        UI->AppendHistory("Unimplemented OpCode: 0x%x%03.3x\n", cond, opcode);
     }
 
     return true;
@@ -107,9 +110,29 @@ bool CPU_t::Emulate(uint16_t cond, uint16_t opcode)
 //    -----------------------
 void CPU_t::Emulate(void) 
 {
+    int ch;
+
+    while ((ch = getch()) != ' ' && ch != 'q') {}
+    if (ch == 'q') return;
+
     while (true) {
+        // -- right now, the hardware only has 6 address lines hooked up; emulate that here
+        if (pc.Value() >= 64) {
+            pc = 0;
+            CPU->UpdateUI();
+        }
+
+        ch = getch();
+        if (ch == 'q') return;
+
+        if (ch > 255) {
+            mvprintw(26, 3, "Found an upper-byte control code: %d\n", ch);
+        }
+
+
         instruction = fetch;
         fetch = memory[pc.Value()];
+        CPU->UpdateUI();
 
         uint16_t instr = instruction.Value();
         uint16_t cond = (instr >> 12) & 0xf;
@@ -117,9 +140,23 @@ void CPU_t::Emulate(void)
 
         bool inc = Emulate(cond, opcode);
         if (inc) pc.Inc();
-
-        usleep(500000);
+        CPU->UpdateUI();
     }
+}
+
+
+
+//
+// -- Update the whole computer contents on screen
+//    --------------------------------------------
+void CPU_t::UpdateUI(void)
+{
+    wrefresh(UI->Hist());
+    r1.Draw();
+    pc.Draw();
+    fetch.Draw();
+    instruction.Draw();
+    c.Draw();
 }
 
 
@@ -151,14 +188,17 @@ void ReadProgram(const char *f)
 }
 
 
+
 //
 // -- Main Entry Point
 //    ----------------
 int main(int argc, char *argv[]) 
 {
     ReadProgram(argv[1]);
+    UI;         // first call to UI->Get; for it to be initialiZed
     CPU->Emulate();
 
+    endwin();
     return EXIT_SUCCESS;
 }
 

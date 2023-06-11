@@ -1,3 +1,4 @@
 .tup
 bin/emu*
 .vscode
+doc
