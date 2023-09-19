@@ -43,10 +43,59 @@ void CPU_t::PrintBinary(uint16_t v)
 
 
 //
+// -- Have the specified Conditions been met
+//    --------------------------------------
+bool CPU_t::ConditionsMet(uint16_t cond)
+{
+    switch (cond) {
+    case 0x0: return true;
+    case 0x1: return false;
+    case 0x2: return z;
+    case 0x3: return !z;
+    case 0x4: return c;
+    case 0x5: return !c;
+    case 0x6: return n;
+    case 0x7: return !n;
+    case 0x8: return v;
+    case 0x9: return !v;
+    case 0xa: return c && !z;
+    case 0xb: return !c || z;
+    case 0xc: return !l;
+    case 0xd: return l;
+    case 0xe: return !z && !l;
+    case 0xf: return z || l;
+    }
+
+    return false;
+}
+
+
+const char *condStr[] = {
+    "",         // Always
+    "-NV",      // Never
+    "-EQ",      // Equal
+    "-NE",      // Not Equal
+    "-CS",      // Carry Set
+    "-CC",      // Carry Clear
+    "-MI",      // Negative (Minus)
+    "-PL",      // Non Negative (Plus or Zero)
+    "-VS",      // Overflow Set
+    "-VC",      // Overflow Clear
+    "-HI",      // Unsigned Higher
+    "-LS",      // Unsigned Lower/Same
+    "-GE",      // Signed Greater Than or Equal
+    "-LT",      // Signed Less Than
+    "-GT",      // Signed Greater Than
+    "-LE",      // Signed Less Than or Equal
+};
+
+//
 // -- Emulate a single instruction
 //    ----------------------------
 bool CPU_t::Emulate(uint16_t cond, uint16_t opcode)
 {
+    bool cnd = ConditionsMet(cond);
+
     switch(opcode) {
     case 0x000:     /* NOP */
         // Do Nothing!
@@ -63,42 +112,149 @@ bool CPU_t::Emulate(uint16_t cond, uint16_t opcode)
 
         break;
 
-    case 0x013:     /* MOV R1,<imm16> */
-        UI->AppendHistory("MOV R1,%04.4X\n", CPU->fetch.Value());
+    case 0x001:     /* MOV R1,<imm16> */
+        UI->AppendHistory("MOV%s R1,%04.4X", condStr[cond], CPU->fetch.Value());
+
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            irSuppress = true;
+            fetch = 0;
+            break;
+        }
+
+        UI->AppendHistory("\n");
 
         r1 = fetch;
-        fetch = 0;
         irSuppress = true;
+        fetch = 0;
         break;
 
-    case 0x020:     /* CLC */
-        UI->AppendHistory("CLC\n");
+    case 0x002:     /* MOV R2,<imm16> */
+        UI->AppendHistory("MOV%s R2,%04.4X", condStr[cond], CPU->fetch.Value());
+
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            irSuppress = true;
+            fetch = 0;
+            break;
+        }
+
+        UI->AppendHistory("\n");
+
+        r1 = fetch;
+        irSuppress = true;
+        fetch = 0;
+        break;
+
+    case 0x00e:     /* CLC */
+        UI->AppendHistory("CLC%s", condStr[cond]);
+
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            break;
+        }
+
+        UI->AppendHistory("\n");
 
         c = false;
         break;
 
-    case 0x030:     /* STC */
-        UI->AppendHistory("STC\n");
+    case 0x00f:     /* STC */
+        UI->AppendHistory("STC%s", condStr[cond]);
+
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            break;
+        }
+
+        UI->AppendHistory("\n");
 
         c = true;
         break;
 
-    case 0x040:     /* MOV R1,PC */
-        UI->AppendHistory("MOV R1,PC\n");
+    case 0x022:     /* MOV R2,R1 */
+        UI->AppendHistory("MOV%s R2,R1", condStr[cond]);
 
-        r1 = pc;
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            break;
+        }
+
+        UI->AppendHistory("\n");
+
+        r1 = r2;
         break;
 
-    case 0xff3:     /* JMP <imm16> */
-        UI->AppendHistory("JMP %04.4X\n", CPU->fetch.Value());
+    case 0x031:     /* MOV R1,R2 */
+        UI->AppendHistory("MOV%s R1,R2", condStr[cond]);
+
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            break;
+        }
+
+        UI->AppendHistory("\n");
+
+        r2 = r1;
+        break;
+
+    case 0x0f0:     /* JMP <imm16> */
+        UI->AppendHistory("JMP%s %04.4X", condStr[cond], CPU->fetch.Value());
+
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            irSuppress = true;
+            fetch = 0;
+            break;
+        }
+
+        UI->AppendHistory("\n");
 
         pc = fetch;
+        irSuppress = true;
         fetch = 0;
+        return false;
+
+    case 0x0f1:     /* JMP R1 */
+        UI->AppendHistory("JMP%s R1", condStr[cond]);
+
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            break;
+        }
+
+        UI->AppendHistory("\n");
+
+        pc = r1;
+        irSuppress = true;
+        return false;
+
+    case 0x0f2:     /* JMP R2 */
+        UI->AppendHistory("JMP%s R2", condStr[cond]);
+
+        if (!cnd) {
+            UI->AppendSkipped();
+
+            break;
+        }
+
+        UI->AppendHistory("\n");
+
+        pc = r2;
         irSuppress = true;
         return false;
 
     default:
         UI->AppendHistory("Unimplemented OpCode: 0x%x%03.3x\n", cond, opcode);
+        debug = true;
     }
 
     return true;
@@ -108,12 +264,16 @@ bool CPU_t::Emulate(uint16_t cond, uint16_t opcode)
 //
 // -- Start the CPU Emulation
 //    -----------------------
-void CPU_t::Emulate(void) 
+void CPU_t::Emulate(void)
 {
     int ch;
 
-    while ((ch = getch()) != ' ' && ch != 'q') {}
+    while ((ch = getch()) != ' ' && ch != 'q' && ch != 'd') {}
     if (ch == 'q') return;
+    if (ch == 'd') {
+        debug = !debug;
+        CPU->UpdateUI();
+    }
 
     while (true) {
         // -- right now, the hardware only has 6 address lines hooked up; emulate that here
@@ -124,6 +284,10 @@ void CPU_t::Emulate(void)
 
         ch = getch();
         if (ch == 'q') return;
+        if (ch == 'd') {
+            debug = !debug;
+        }
+        if (debug && ch != ' ') continue;
 
         if (ch > 255) {
             mvprintw(26, 3, "Found an upper-byte control code: %d\n", ch);
@@ -153,10 +317,15 @@ void CPU_t::UpdateUI(void)
 {
     wrefresh(UI->Hist());
     r1.Draw();
+    r2.Draw();
     pc.Draw();
     fetch.Draw();
     instruction.Draw();
+    z.Draw();
     c.Draw();
+    n.Draw();
+    v.Draw();
+    debug.Draw();
 }
 
 
@@ -192,7 +361,7 @@ void ReadProgram(const char *f)
 //
 // -- Main Entry Point
 //    ----------------
-int main(int argc, char *argv[]) 
+int main(int argc, char *argv[])
 {
     ReadProgram(argv[1]);
     UI;         // first call to UI->Get; for it to be initialiZed

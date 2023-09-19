@@ -4,7 +4,7 @@
 //      Copyright (c) 2023 - Adam Clark
 //      License: Beerware
 //
-//  This file contains the definitions for the 16-Bit Computer From Scratch.  This file will be included in all 
+//  This file contains the definitions for the 16-Bit Computer From Scratch.  This file will be included in all
 //  source files to import all definitions and function prototypes.
 //
 //      Date     Tracker  Version  Description
@@ -88,6 +88,7 @@ public:
 public:
     Flag_t &operator=(const Flag_t &f) { value = f.value; Draw(); return *this; };
     Flag_t &operator=(const bool v) { value = v; Draw(); return *this; }
+    operator bool() const { return value; }
 
 public:
     inline bool Value(void) const { return value; }
@@ -111,7 +112,7 @@ private:
     bool firstInstr;
 
 private:
-    CPU_t(void) : r1(6, 7), pc(20,7), fetch(24,7), instruction(24,56), c(4, 56)  { irSuppress = false; firstInstr = true; UpdateUI(); }
+    CPU_t(void) : r1(6, 7), r2(7,7), pc(20,7), fetch(24,7), instruction(24,56), z(4,52), c(4,56), n(4,60), v(4,64), l(4,68), debug(4,48)  { irSuppress = false; firstInstr = true; UpdateUI(); }
 
 public:
     virtual ~CPU_t() {}
@@ -121,6 +122,7 @@ public:
 
 private:
     void PrintBinary(uint16_t v);
+    bool ConditionsMet(uint16_t cond);
 
 public:
     void Emulate(void);
@@ -132,9 +134,15 @@ public:
 protected:
     Register_t pc;
     Register_t r1;
+    Register_t r2;
     Register_t fetch;
     Register_t instruction;
+    Flag_t z;
     Flag_t c;
+    Flag_t n;
+    Flag_t v;
+    Flag_t l;
+    Flag_t debug;
 };
 
 
@@ -155,6 +163,7 @@ public:
         C_BIT_OFF = 3,
         C_TITLE = 4,
         C_LABEL = 5,
+        C_SKIPPED = 6,
     };
 
 
@@ -182,6 +191,7 @@ public:
 
 public:
     int AppendHistory(const char *fmt, ...) { va_list l; va_start(l,fmt); int rv = vw_printw(hist, fmt, l); va_end(l); return rv; };
+    void AppendSkipped(void) { wattrset(hist, COLOR_PAIR(C_SKIPPED)); wprintw(hist, " (condition not met)\n"); wattrset(hist, A_NORMAL); };
 };
 
 

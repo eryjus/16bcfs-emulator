@@ -70,7 +70,7 @@ void UI_t::OutputRegister(int x, int y, uint16_t val)
     OutputBit(x, y + 16, val & 0x0004);
     OutputBit(x, y + 17, val & 0x0002);
     OutputBit(x, y + 18, val & 0x0001);
-    
+
     mvprintw(x, y + 20, "%04.4X", val);
 }
 
@@ -88,7 +88,7 @@ void UI_t::PaintEmulator(void)
         attrset(A_NORMAL);
         refresh();
 
-        return; 
+        return;
     }
 
     attrset(A_NORMAL);
@@ -111,7 +111,7 @@ void UI_t::PaintEmulator(void)
     mvvline(3, 34, ACS_VLINE, 22);
     mvvline(3, 41, ACS_VLINE, 22);
 
-    
+
     //
     // -- Now fill in all the interseactions as needed
     //    --------------------------------------------
@@ -199,6 +199,8 @@ void UI_t::PaintEmulator(void)
     mvprintw(3, 56, "C");
     mvprintw(3, 60, "N");
     mvprintw(3, 64, "V");
+    mvprintw(4, 43, "Dbg:");
+    mvprintw(4, 48, "x");
     mvprintw(4, 52, "x");
     mvprintw(4, 56, "x");
     mvprintw(4, 60, "x");
@@ -206,7 +208,7 @@ void UI_t::PaintEmulator(void)
 
     attrset(A_NORMAL);
 
-    refresh();    
+    refresh();
 }
 
 
@@ -234,6 +236,7 @@ void UI_t::InitUi(void)
     init_pair(C_BIT_ON, COLOR_RED, COLOR_BLACK);
     init_pair(C_TITLE, COLOR_BLUE, COLOR_BLACK);
     init_pair(C_LABEL, COLOR_MAGENTA, COLOR_BLACK);
+    init_pair(C_SKIPPED, COLOR_RED, COLOR_BLACK);
 
     PaintEmulator();
     hist = newwin(18, COLS - 45, 6, 43);
@@ -243,7 +246,7 @@ void UI_t::InitUi(void)
 
     wattrset(hist, A_BOLD | COLOR_PAIR(C_TITLE));
     wprintw(hist, "Welcome to the 16-Bit Computer From Scratch Emulator\n");
-    wprintw(hist, "  Press <space> to start; q = exit\n\n");
+    wprintw(hist, "  d = toggle dbg; <space> = start/step; q = exit\n\n");
     wattrset(hist, A_NORMAL);
 
     wrefresh(hist);
