@@ -1,0 +1,4 @@
+include_rules
+
+: foreach ../inc/hw/* |> ~/Qt/$(QT_VERSION)/gcc_64/libexec/moc -I ../inc %f -o %o |> %B.moc.cc
+: foreach ../inc/gui/* |> ~/Qt/$(QT_VERSION)/gcc_64/libexec/moc -I ../inc %f -o %o |> %B.moc.cc

@@ -1,1 +1,3 @@
-: ../src/*.cc |> clang -I ../inc -o %o %f -lncurses -lstdc++ |> emu
+include_rules
+
+: ../obj/*.o |> gcc -L /home/adam/Qt/$(QT_VERSION)/gcc_64/lib/ -o %o %f -lQt6Widgets -lQt6Core -lQt6Gui -lstdc++ |> emu
